@@ -280,6 +280,20 @@ router.post("/get_verify_code", async (req, res) => {
   }
 });
 
+// @route  POST it4788/auth/logout
+// @desc   logout
+// @access Public
+router.post("/logout", verify, async (req, res) => {
+  try {
+    let user = await User.findById(req.user.id);
+    user.dateLogin = "";
+    await user.save();
+    return callRes(res, responseError.OK);
+  } catch (error) {
+    return callRes(res, responseError.UNKNOWN_ERROR, error.message);
+  }
+});
+
 // @route  POST it4788/auth/check_verify_code
 // @desc   check verified code
 // @access Public
@@ -451,19 +465,6 @@ router.post("/change_password", verifyToken, async (req, res) => {
       }
     });
   });
-});
-// @route  POST it4788/auth/logout
-// @desc   logout
-// @access Public
-router.post("/logout", verify, async (req, res) => {
-  try {
-    let user = await User.findById(req.user.id);
-    user.dateLogin = "";
-    await user.save();
-    return callRes(res, responseError.OK);
-  } catch (error) {
-    return callRes(res, responseError.UNKNOWN_ERROR, error.message);
-  }
 });
 
 router.post("/set_devtoken", verify, async (req, res) => {
