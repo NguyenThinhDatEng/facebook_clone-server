@@ -39,11 +39,11 @@ const Setting = require("../models/Setting");
 const verifyToken = require("../utils/verifyToken");
 const LCS = require("../utils/LCS");
 
-// @route  POST it4788/signup
+// @route  POST it4788/auth/signup
 // @desc   Register new user
 // @access Public
 // Example: Use Postman
-// URL: http://127.0.0.1:5000/it4788/signup?phoneNumber=0963689216&password=thinh123
+// URL: http://127.0.0.1:5000/it4788/auth/signup?phoneNumber=0963689216&password=thinh123
 router.post("/signup", async (req, res) => {
   const { password } = req.query;
   let phoneNumber = req.query.phoneNumber;
@@ -123,7 +123,95 @@ router.post("/signup", async (req, res) => {
   }
 });
 
-// @route  POST it4788/get_verify_code
+// @route  POST it4788/auth/login
+// @desc   login
+// @access Public
+router.post("/login", async (req, res) => {
+  const { password } = req.query;
+  let phoneNumber = req.query.phoneNumber;
+  if (phoneNumber === undefined || password === undefined) {
+    return callRes(
+      res,
+      responseError.PARAMETER_IS_NOT_ENOUGH,
+      "phoneNumber, password"
+    );
+  }
+  if (typeof phoneNumber != "string" || typeof password != "string") {
+    return callRes(
+      res,
+      responseError.PARAMETER_TYPE_IS_INVALID,
+      "phoneNumber, password"
+    );
+  }
+  if (!validInput.checkPhoneNumber(phoneNumber)) {
+    return callRes(
+      res,
+      responseError.PARAMETER_VALUE_IS_INVALID,
+      "phoneNumber"
+    );
+  }
+  if (!validInput.checkUserPassword(password)) {
+    return callRes(res, responseError.PARAMETER_VALUE_IS_INVALID, "password");
+  }
+  if (phoneNumber == password) {
+    return callRes(
+      res,
+      responseError.PARAMETER_VALUE_IS_INVALID,
+      "trùng phone và pass"
+    );
+  }
+  try {
+    // check for existing user
+    let user = await User.findOne({ phoneNumber });
+    if (!user)
+      return callRes(
+        res,
+        responseError.USER_IS_NOT_VALIDATED,
+        "không có user này"
+      );
+    if (!user.isVerified)
+      return callRes(
+        res,
+        responseError.USER_IS_NOT_VALIDATED,
+        "chưa xác thực code verify"
+      );
+    bcrypt.compare(password, user.password).then(async (isMatch) => {
+      if (!isMatch)
+        return callRes(
+          res,
+          responseError.PARAMETER_VALUE_IS_INVALID,
+          "password"
+        );
+      user.dateLogin = Date.now();
+      try {
+        let loginUser = await user.save();
+        jwt.sign(
+          { id: loginUser.id, dateLogin: loginUser.dateLogin },
+          process.env.jwtSecret,
+          { expiresIn: 86400 },
+          (err, token) => {
+            if (err)
+              return callRes(res, responseError.UNKNOWN_ERROR, err.message);
+            let data = {
+              id: loginUser.id,
+              username: loginUser.name ? loginUser.name : null,
+              token: token,
+              avatar: loginUser.avatar.url ? loginUser.avatar.url : null,
+              active: null,
+            };
+            return callRes(res, responseError.OK, data);
+          }
+        );
+      } catch (error) {
+        return callRes(res, responseError.UNKNOWN_ERROR, error.message);
+      }
+    });
+  } catch (error) {
+    return callRes(res, responseError.UNKNOWN_ERROR, error.message);
+  }
+});
+
+// @route  POST it4788/auth/get_verify_code
 // @desc   get verified code
 // @access Public
 router.post("/get_verify_code", async (req, res) => {
@@ -192,7 +280,7 @@ router.post("/get_verify_code", async (req, res) => {
   }
 });
 
-// @route  POST it4788/check_verify_code
+// @route  POST it4788/auth/check_verify_code
 // @desc   check verified code
 // @access Public
 router.post("/check_verify_code", async (req, res) => {
@@ -284,94 +372,6 @@ router.post("/check_verify_code", async (req, res) => {
   }
 });
 
-// @route  POST it4788/login
-// @desc   login
-// @access Public
-router.post("/login", async (req, res) => {
-  const { password } = req.query;
-  let phoneNumber = req.query.phonenumber;
-  if (phoneNumber === undefined || password === undefined) {
-    return callRes(
-      res,
-      responseError.PARAMETER_IS_NOT_ENOUGH,
-      "phoneNumber, password"
-    );
-  }
-  if (typeof phoneNumber != "string" || typeof password != "string") {
-    return callRes(
-      res,
-      responseError.PARAMETER_TYPE_IS_INVALID,
-      "phoneNumber, password"
-    );
-  }
-  if (!validInput.checkPhoneNumber(phoneNumber)) {
-    return callRes(
-      res,
-      responseError.PARAMETER_VALUE_IS_INVALID,
-      "phoneNumber"
-    );
-  }
-  if (!validInput.checkUserPassword(password)) {
-    return callRes(res, responseError.PARAMETER_VALUE_IS_INVALID, "password");
-  }
-  if (phoneNumber == password) {
-    return callRes(
-      res,
-      responseError.PARAMETER_VALUE_IS_INVALID,
-      "trùng phone và pass"
-    );
-  }
-  try {
-    // check for existing user
-    let user = await User.findOne({ phoneNumber });
-    if (!user)
-      return callRes(
-        res,
-        responseError.USER_IS_NOT_VALIDATED,
-        "không có user này"
-      );
-    if (!user.isVerified)
-      return callRes(
-        res,
-        responseError.USER_IS_NOT_VALIDATED,
-        "chưa xác thực code verify"
-      );
-    bcrypt.compare(password, user.password).then(async (isMatch) => {
-      if (!isMatch)
-        return callRes(
-          res,
-          responseError.PARAMETER_VALUE_IS_INVALID,
-          "password"
-        );
-      user.dateLogin = Date.now();
-      try {
-        let loginUser = await user.save();
-        jwt.sign(
-          { id: loginUser.id, dateLogin: loginUser.dateLogin },
-          process.env.jwtSecret,
-          { expiresIn: 86400 },
-          (err, token) => {
-            if (err)
-              return callRes(res, responseError.UNKNOWN_ERROR, err.message);
-            let data = {
-              id: loginUser.id,
-              username: loginUser.name ? loginUser.name : null,
-              token: token,
-              avatar: loginUser.avatar.url ? loginUser.avatar.url : null,
-              active: null,
-            };
-            return callRes(res, responseError.OK, data);
-          }
-        );
-      } catch (error) {
-        return callRes(res, responseError.UNKNOWN_ERROR, error.message);
-      }
-    });
-  } catch (error) {
-    return callRes(res, responseError.UNKNOWN_ERROR, error.message);
-  }
-});
-
 router.post("/change_password", verifyToken, async (req, res) => {
   const { token, password, new_password } = req.query;
 
@@ -452,7 +452,7 @@ router.post("/change_password", verifyToken, async (req, res) => {
     });
   });
 });
-// @route  POST it4788/logout
+// @route  POST it4788/auth/logout
 // @desc   logout
 // @access Public
 router.post("/logout", verify, async (req, res) => {
