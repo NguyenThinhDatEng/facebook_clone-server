@@ -38,6 +38,8 @@ const uploader = multer({
 router.post("/get_user_info", async (req, res) => {
   let { token, user_id } = req.query;
   let tokenUser, tokenError;
+  // Get user ID
+  // Get id from token
   if (token) {
     tokenUser = await getUserIDFromToken(token);
     if (tokenUser && typeof tokenUser === "string")
@@ -50,6 +52,7 @@ router.post("/get_user_info", async (req, res) => {
       return callRes(res, responseError.PARAMETER_TYPE_IS_INVALID, "user_id");
   }
   if (!user_id) return callRes(res, responseError.PARAMETER_IS_NOT_ENOUGH);
+  // init variables
   let user;
   let data = {
     id: null,
@@ -66,6 +69,7 @@ router.post("/get_user_info", async (req, res) => {
     is_friend: null,
     online: null,
   };
+  // Call API
   try {
     user = await User.findById(user_id);
     if (!user)
